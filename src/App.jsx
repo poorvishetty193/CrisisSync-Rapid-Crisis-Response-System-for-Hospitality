@@ -7,7 +7,7 @@ import {
   MessageCircle, Activity, Thermometer, PhoneCall, Radio, Camera, Mic
 } from 'lucide-react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 
@@ -199,28 +199,35 @@ const ANALYTICS_DATA = {
 };
 
 // --- HELPER APIs ---
-const callClaudeAPI = async (systemPrompt, userPrompt, expectJson = false) => {
+const callGeminiAPI = async (systemPrompt, userPrompt, expectJson = false) => {
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+    const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+    const response = await fetch(API_ENDPOINT, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerously-allow-browser': 'true'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }]
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        generationConfig: {
+          responseMimeType: expectJson ? "application/json" : "text/plain"
+        }
       })
     });
     if (!response.ok) throw new Error(`API Error: ${response.status}`);
     const data = await response.json();
-    const text = data.content[0].text;
+    const text = data.candidates[0].content.parts[0].text;
     if (expectJson) {
-      const match = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-      return match ? JSON.parse(match[0]) : JSON.parse(text);
+      try {
+        let cleaned = text.replace(/```(?:json)?/gi, '').trim();
+        return JSON.parse(cleaned);
+      } catch (parseErr) {
+        console.error("JSON Parse Error:", parseErr, "Raw Text:", text);
+        return { error: true, parsed: false };
+      }
     }
     return text;
   } catch (error) {
@@ -229,6 +236,7 @@ const callClaudeAPI = async (systemPrompt, userPrompt, expectJson = false) => {
     return "Error connecting to AI service: " + error.message;
   }
 };
+const callClaudeAPI = callGeminiAPI;
 
 const formatTimeElapsed = (seconds) => {
   const h = Math.floor(seconds / 3600);
@@ -414,7 +422,7 @@ export default function CrisisSync() {
         <div className="flex-1 relative overflow-hidden bg-[#0a0c10]">
           {view === 'map' && <MapView incidents={incidents} staff={staff} onSelectIncident={setSelectedIncidentId} />}
           {view === 'incidents' && <IncidentsView incidents={incidents} staff={staff} onSelectIncident={setSelectedIncidentId} onNewIncident={() => setNewIncidentModalOpen(true)} />}
-          {view === 'responders' && <RespondersView incidents={incidents} staff={staff} onAssign={assignResponder} addToast={addToast} />}
+          {view === 'responders' && <RespondersView incidents={incidents} staff={staff} onAssign={assignResponder} addToast={addToast} setView={setView} />}
           {view === 'communications' && <CommunicationsView conversations={conversations} setConversations={setConversations} />}
           {view === 'analytics' && <AnalyticsView />}
         </div>
@@ -670,8 +678,9 @@ function IncidentsView({ incidents, staff, onSelectIncident, onNewIncident }) {
   );
 }
 
-function RespondersView({ incidents, staff, onAssign, addToast }) {
+function RespondersView({ incidents, staff, onAssign, addToast, setView }) {
   const [loading, setLoading] = useState(false);
+  const [selectedStaffId, setSelectedStaffId] = useState(staff[0]?.id);
   const unassigned = incidents.filter(i => !i.responderId && i.status !== 'RESOLVED' && i.status !== 'CLOSED');
 
   const handleAutoDispatch = async () => {
@@ -707,7 +716,7 @@ function RespondersView({ incidents, staff, onAssign, addToast }) {
         <div className="p-4 border-b border-[#1e2330] font-bold text-sm tracking-wide">STAFF ROSTER</div>
         <div className="flex-1 overflow-y-auto divide-y divide-[#1e2330] p-2">
           {staff.map(s => (
-            <div key={s.id} className="p-3 hover:bg-[#1a1d24] transition rounded cursor-pointer">
+            <div key={s.id} onClick={() => setSelectedStaffId(s.id)} className={`p-3 transition rounded cursor-pointer ${selectedStaffId === s.id ? 'bg-[#1a1d24] border-l-2 border-blue-500' : 'hover:bg-[#1a1d24] border-l-2 border-transparent'}`}>
               <div className="flex justify-between items-start">
                 <div className="font-semibold">{s.name}</div>
                 <div className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${s.status === 'Available' ? 'bg-green-500/10 text-green-500' : 'bg-orange-500/10 text-orange-500'}`}>{s.status}</div>
@@ -752,33 +761,45 @@ function RespondersView({ incidents, staff, onAssign, addToast }) {
 
       {/* Staff Detail */}
       <div className="w-1/3 bg-[#111318] border border-[#1e2330] rounded flex flex-col items-center p-6 text-center">
-         <div className="w-20 h-20 rounded-full border-2 border-green-500/50 bg-[#1a1d24] flex items-center justify-center text-2xl font-bold text-gray-400 mb-4 shadow-[0_0_15px_rgba(34,197,94,0.2)]">
-           JC
-         </div>
-         <h2 className="text-xl font-bold text-white mb-1">James Chen</h2>
-         <p className="text-sm text-blue-400 font-medium mb-6">Security Lead</p>
-         
-         <div className="w-full bg-[#0a0c10] rounded border border-[#1e2330] p-4 text-left space-y-3">
-           <div className="flex justify-between text-xs border-b border-[#1e2330] pb-2">
-             <span className="text-gray-500">Current Status</span>
-             <span className="font-bold text-orange-400">Responding - INC-001</span>
-           </div>
-           <div className="flex justify-between text-xs border-b border-[#1e2330] pb-2">
-             <span className="text-gray-500">Last GPS Fix</span>
-             <span className="font-mono text-gray-300">Floor 7 Corridor (Live)</span>
-           </div>
-           <div className="flex justify-between text-xs pb-1">
-             <span className="text-gray-500">Shift</span>
-             <span className="text-gray-300">08:00 - 20:00</span>
-           </div>
-         </div>
+        {(() => {
+          const s = staff.find(st => st.id === selectedStaffId) || staff[0];
+          if (!s) return null;
+          const initials = s.name.split(' ').map(n=>n[0]).join('');
+          const activeInc = incidents.find(i => i.responderId === s.id && i.status !== 'RESOLVED' && i.status !== 'CLOSED');
+          return (
+            <>
+             <div className="w-20 h-20 rounded-full border-2 border-blue-500/50 bg-[#1a1d24] flex items-center justify-center text-2xl font-bold text-gray-400 mb-4 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+               {initials}
+             </div>
+             <h2 className="text-xl font-bold text-white mb-1">{s.name}</h2>
+             <p className="text-sm text-blue-400 font-medium mb-6">{s.role}</p>
+             
+             <div className="w-full bg-[#0a0c10] rounded border border-[#1e2330] p-4 text-left space-y-3">
+               <div className="flex justify-between text-xs border-b border-[#1e2330] pb-2">
+                 <span className="text-gray-500">Current Status</span>
+                 <span className={`font-bold ${s.status === 'Available' ? 'text-green-400' : 'text-orange-400'}`}>
+                   {s.status} {activeInc ? `- ${activeInc.id}` : ''}
+                 </span>
+               </div>
+               <div className="flex justify-between text-xs border-b border-[#1e2330] pb-2">
+                 <span className="text-gray-500">Last GPS Fix</span>
+                 <span className="font-mono text-gray-300">Floor {s.floor} (Live)</span>
+               </div>
+               <div className="flex justify-between text-xs pb-1">
+                 <span className="text-gray-500">Shift</span>
+                 <span className="text-gray-300">08:00 - 20:00</span>
+               </div>
+             </div>
 
-         <div className="mt-auto w-full">
-           <button className="w-full bg-[#1a1d24] hover:bg-[#222630] border border-[#1e2330] text-gray-300 rounded py-2 text-sm font-semibold transition flex items-center justify-center space-x-2">
-             <MessageCircle className="w-4 h-4" />
-             <span>DIRECT MESSAGE</span>
-           </button>
-         </div>
+             <div className="mt-auto w-full">
+               <button onClick={() => { addToast(`Opening secure channel with ${s.name}...`, 'info'); setView('communications'); }} className="w-full bg-[#1a1d24] hover:bg-[#222630] border border-[#1e2330] text-gray-300 rounded py-2 text-sm font-semibold transition flex items-center justify-center space-x-2">
+                 <MessageCircle className="w-4 h-4" />
+                 <span>DIRECT MESSAGE</span>
+               </button>
+             </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ A real-time crisis response and coordination dashboard for hospitality venues, b
 ## Features
 - **Live Map**: Real-time visual tracking of incidents and staff members on different floors.
 - **Incident Management**: Incident board, details side-panel, and full timeline tracking.
-- **AI Triage**: Automatic classification and prioritization using the Anthropic Claude API.
+- **AI Triage**: Automatic classification and prioritization using the Google Gemini 2.5 API.
 - **Auto Dispatch**: AI-driven smart dispatch logic pairing available staff based on proximity and role.
 - **Communications**: Guest and staff communication channels with live translations and AI-assisted drafting.
 - **Analytics**: Dashboard capturing KPIs and generating AI-based executive summaries.
@@ -17,12 +17,18 @@ A real-time crisis response and coordination dashboard for hospitality venues, b
    npm install
    ```
 
-2. **Start the local development server**
+2. **Set up Environment Variables**
+   Create a `.env` file in the root directory and add your Google Gemini API key:
+   ```env
+   VITE_GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+
+3. **Start the local development server**
    ```bash
    npm run dev
    ```
 
-3. **View the Application**
+4. **View the Application**
    Open your browser to `http://localhost:5173`.
 
 
@@ -56,4 +62,4 @@ A `Dockerfile` has been included in this repository.
 - **Frontend Build**: Handled automatically via Vite.
 - **Container**: `nginx:stable-alpine` serves the static built files efficiently.
 - **Data Storage**: In-memory (mock data pre-populated on load).
-- **AI Features**: Anthropic Claude API (accessed directly via the client).
+- **AI Features**: Google Gemini 2.5 Flash API (accessed directly via the client).
