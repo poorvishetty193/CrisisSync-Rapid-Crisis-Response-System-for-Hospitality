@@ -15,7 +15,7 @@ Hospitality emergencies fail on three axes:
 
 ## 2. Core Architecture — The Dashboard Engine
 Unlike traditional thick-client software, CrisisSync is designed as an ultra-fast, single-page React application that acts as a real-time command center.
-
+```
 ┌──────────────────────────────────────────────────────┐
 │  LAYER 1 — TELEMETRY (Mock Simulation Loop)          │
 ├──────────────────────────────────────────────────────┤
@@ -25,7 +25,7 @@ Unlike traditional thick-client software, CrisisSync is designed as an ultra-fas
 ├──────────────────────────────────────────────────────┤
 │  LAYER 4 — THE COMMAND INTERFACE (React Dashboards)  │
 └──────────────────────────────────────────────────────┘
-
+```
 For this iteration, all real-time state is orchestrated centrally in the client layer, enabling hyper-fast demonstration capabilities without the overhead of a remote database instance.
 
 ---
@@ -125,4 +125,4 @@ To make this project a stunning, self-contained standalone build:
 1. **Zero Backend Overhead:** There are no databases running locally. The prototype runs purely in memory on load, ensuring seamless portability and zero installation downtime.
 2. **API Bypass Capability:** By natively hitting Google APIs directly via frontend CORS, the app functions universally anywhere as long as the `.env` holds a valid GEMINI key.
 3. **Self-Playing Capabilities:** By writing random incident-generators and automated state-progression hooks, the dashboard naturally looks "alive" out of the box, painting the perfect realistic narrative without requiring extensive multi-user terminal scripting.
-```
+
